@@ -2,7 +2,7 @@
 const mongoose = require('mongoose');
 
 const documentSchema = new mongoose.Schema({
-  collection: { type: mongoose.Schema.Types.ObjectId, ref: 'Collection' },
+  foreignKey: { type: mongoose.Schema.Types.ObjectId, ref: 'Collection' },
   data: {
     type: mongoose.Schema.Types.Mixed,
     validate(value) {

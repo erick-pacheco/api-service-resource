@@ -3,11 +3,16 @@ const authRoute = require('./auth.route');
 const userRoute = require('./user.route');
 const docsRoute = require('./docs.route');
 const healthzRoute = require('./healthz.route');
+const collectionRoute = require('./collections.route');
 const config = require('../../config/config');
 
 const router = express.Router();
 
 const defaultRoutes = [
+  {
+    path: '/collection',
+    route: collectionRoute,
+  },
   {
     path: '/auth',
     route: authRoute,

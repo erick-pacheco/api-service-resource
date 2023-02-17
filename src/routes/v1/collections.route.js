@@ -1,5 +1,8 @@
 // Import required modules
-const app = require('../../app');
+const express = require('express');
+
+const router = express.Router();
+
 const Collection = require('../../models/collections.model');
 const Document = require('../../models/documents.model');
 const logger = require('../../config/logger');
@@ -7,7 +10,7 @@ const logger = require('../../config/logger');
 // Define API endpoints
 // Define routes for creating a new document in a collection and retrieving all documents in a collection
 
-app.post('/collections/:collectionName/documents', async (req, res) => {
+router.post('/:collectionName/documents', async (req, res) => {
   const { collectionName } = req.params;
 
   try {
@@ -21,7 +24,7 @@ app.post('/collections/:collectionName/documents', async (req, res) => {
     const newDocument = new Document(req.body);
 
     // Set the collection property to the ID of the collection
-    newDocument.collection = collection._id;
+    newDocument.foreignKey = collection._id;
 
     // Save the document to the database
     await newDocument.save();
@@ -34,7 +37,7 @@ app.post('/collections/:collectionName/documents', async (req, res) => {
   }
 });
 
-app.get('/collections/:collectionName/documents', async (req, res) => {
+router.get('/:collectionName/documents', async (req, res) => {
   const { collectionName } = req.params;
 
   try {
@@ -45,7 +48,7 @@ app.get('/collections/:collectionName/documents', async (req, res) => {
     }
 
     // Find all documents in the collection
-    const documents = await Document.find({ collection: collection._id });
+    const documents = await Document.find({ foreignKey: collection._id });
 
     // Return the documents
     return res.json(documents);
@@ -56,7 +59,7 @@ app.get('/collections/:collectionName/documents', async (req, res) => {
 });
 
 // Get all collections
-app.get('/collections', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const collections = await Collection.find();
     res.json(collections);
@@ -66,7 +69,7 @@ app.get('/collections', async (req, res) => {
 });
 
 // Get a collection by ID
-app.get('/collections/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const collection = await Collection.findById(id);
@@ -81,7 +84,7 @@ app.get('/collections/:id', async (req, res) => {
 });
 
 // Update a collection by ID
-app.patch('/collections/:id', async (req, res) => {
+router.patch('/:id', async (req, res) => {
   const { id } = req.params;
   const { name, fields } = req.body;
   try {
@@ -97,7 +100,7 @@ app.patch('/collections/:id', async (req, res) => {
 });
 
 // Delete a collection by ID
-app.delete('/collections/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
     const collection = await Collection.findByIdAndDelete(id);
@@ -112,13 +115,13 @@ app.delete('/collections/:id', async (req, res) => {
 });
 
 // Create a new document in a collection
-app.post('/collections/:collectionId/documents', async (req, res) => {
+router.post('/:collectionId/documents', async (req, res) => {
   const { collectionId } = req.params;
   const { data } = req.body;
   try {
     const collection = await Collection.findById(collectionId);
     if (collection) {
-      const document = await Document.create({ collection: collectionId, data });
+      const document = await Document.create({ foreignKey: collectionId, data });
       res.json(document);
     } else {
       res.status(404).json({ message: 'Collection not found' });
@@ -127,3 +130,5 @@ app.post('/collections/:collectionId/documents', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+module.exports = router;
