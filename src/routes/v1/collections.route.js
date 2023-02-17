@@ -2,132 +2,116 @@
 const express = require('express');
 
 const router = express.Router();
-
 const Collection = require('../../models/collections.model');
 const Document = require('../../models/documents.model');
-const logger = require('../../config/logger');
 
-// Define API endpoints
-// Define routes for creating a new document in a collection and retrieving all documents in a collection
-
-router.post('/:collectionName/documents', async (req, res) => {
-  const { collectionName } = req.params;
+// Middleware function to get a collection by ID
+async function getCollection(req, res, next) {
+  let collection;
 
   try {
-    // Check if the collection exists
-    const collection = await Collection.findOne({ name: collectionName });
-    if (!collection) {
-      return res.status(404).json({ error: `Collection '${collectionName}' not found` });
+    collection = await Collection.findById(req.params.id);
+    if (collection == null) {
+      return res.status(404).json({ message: 'Cannot find collection' });
     }
-
-    // Create a new document based on the request body
-    const newDocument = new Document(req.body);
-
-    // Set the collection property to the ID of the collection
-    newDocument.foreignKey = collection._id;
-
-    // Save the document to the database
-    await newDocument.save();
-
-    // Return the new document
-    return res.json(newDocument);
-  } catch (error) {
-    logger.error(error);
-    return res.status(500).json({ error: 'Internal server error' });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
-});
 
-router.get('/:collectionName/documents', async (req, res) => {
-  const { collectionName } = req.params;
+  res.collection = collection;
+  next();
+}
+/** API Endpoints Definition */
 
-  try {
-    // Check if the collection exists
-    const collection = await Collection.findOne({ name: collectionName });
-    if (!collection) {
-      return res.status(404).json({ error: `Collection '${collectionName}' not found` });
-    }
-
-    // Find all documents in the collection
-    const documents = await Document.find({ foreignKey: collection._id });
-
-    // Return the documents
-    return res.json(documents);
-  } catch (error) {
-    logger.error(error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Get all collections
-router.get('/', async (req, res) => {
+/** GET /v1/collection
+ *  ABOUT: returns all collections in the database
+ */
+router.get('/', async (_, res) => {
   try {
     const collections = await Collection.find();
     res.json(collections);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-// Get a collection by ID
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    const collection = await Collection.findById(id);
-    if (collection) {
-      res.json(collection);
-    } else {
-      res.status(404).json({ message: 'Collection not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Update a collection by ID
-router.patch('/:id', async (req, res) => {
-  const { id } = req.params;
+/** POST /v1/collection
+ *  ABOUT: creates a new collection
+ */
+router.post('/', async (req, res) => {
   const { name, fields } = req.body;
+  const collection = new Collection({
+    name,
+    fields,
+  });
+
   try {
-    const collection = await Collection.findByIdAndUpdate(id, { name, fields }, { new: true });
-    if (collection) {
-      res.json(collection);
-    } else {
-      res.status(404).json({ message: 'Collection not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const newCollection = await collection.save();
+    res.status(201).json(newCollection);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 
-// Delete a collection by ID
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
+/** GET /v1/collection/:id
+ *  ABOUT: Get a specific collection
+ */
+router.get('/:id', getCollection, (_, res) => {
+  res.json(res.collection);
+});
+
+/** PATCH /v1/collection/:id
+ *  ABOUT: Update a collection
+ */
+router.patch('/:id', getCollection, async (req, res) => {
+  const { name } = req.body;
+  if (name != null) {
+    res.collection.name = name;
+  }
+
   try {
-    const collection = await Collection.findByIdAndDelete(id);
-    if (collection) {
-      res.json({ message: 'Collection deleted' });
-    } else {
-      res.status(404).json({ message: 'Collection not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const updatedCollection = await res.collection.save();
+    res.json(updatedCollection);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+/** DELETE /v1/collection/:id
+ *  ABOUT: Delete a collection
+ */
+router.delete('/:id', getCollection, async (req, res) => {
+  try {
+    await res.collection.remove();
+    res.json({ message: 'Deleted Collection' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Get all documents in a collection
+router.get('/:id/documents', getCollection, async (req, res) => {
+  try {
+    const documents = await Document.find({ collection: req.params.id });
+    res.json(documents);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
 // Create a new document in a collection
-router.post('/:collectionId/documents', async (req, res) => {
-  const { collectionId } = req.params;
-  const { data } = req.body;
+router.post('/:id/documents', getCollection, async (req, res) => {
+  const document = new Document({
+    title: req.body.title,
+    content: req.body.content,
+    collection: res.collection._id,
+  });
+
   try {
-    const collection = await Collection.findById(collectionId);
-    if (collection) {
-      const document = await Document.create({ foreignKey: collectionId, data });
-      res.json(document);
-    } else {
-      res.status(404).json({ message: 'Collection not found' });
-    }
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    const newDocument = await document.save();
+    res.status(201).json(newDocument);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

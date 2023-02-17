@@ -1,0 +1,13 @@
+### GET /v1/collection
+GET http://localhost:3000/v1/collection
+
+### POST /v1/collection
+POST http://localhost:3000/v1/collection
+content-type: application/json
+
+{
+    "name": "testCollection",
+    "fields": [
+        {"name":"first_name","type":"String", "required":"true","default":"John Doe"}
+    ]
+}
